@@ -1,4 +1,5 @@
-package card
+
+package cards
 
 import (
 	"github.com/stripe/stripe-go/v72"
