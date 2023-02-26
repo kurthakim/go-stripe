@@ -1,4 +1,3 @@
-
 package cards
 
 import (
@@ -13,7 +12,7 @@ type Card struct {
 }
 
 type Transaction struct {
-	transactionStatusID int
+	TransactionStatusID int
 	Amount int
 	Currency string
 	LastFour string
