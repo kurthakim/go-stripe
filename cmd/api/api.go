@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/kurthakim/go-stripe/internal/driver"
 )
 
 
@@ -40,7 +42,7 @@ func (app *application) serve() error {
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
-	app.infoLog.Println(fmt.Sprintf("Starting Back end server in %s mode on port %d", app.config.env, app.config.port))
+	app.infoLog.Printf("Starting Back end server in %s mode on port %d\n", app.config.env, app.config.port)
 
 	return srv.ListenAndServe()
 }
@@ -51,6 +53,7 @@ func main() {
 
 	flag.IntVar(&cfg.port, "port", 4001, "Server port to listen on")
 	flag.StringVar(&cfg.env, "env", "development", "Application environment {development|production|maintenance}")
+	flag.StringVar(&cfg.db.dsn, "dsn", "kurt:password@tcp(localhost:3307)/widgets?parseTime=true&tls=false", "DSN")
 	
 	flag.Parse()
 
@@ -62,13 +65,19 @@ func main() {
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
+	conn, err := driver.OpenDB(cfg.db.dsn)
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	defer conn.Close()
+	
 	app := &application{
 		config: cfg,
 		infoLog: infoLog,
 		errorLog: errorLog,
 		version: version,
 	}
-	err := app.serve()
+	err = app.serve()
 	if err != nil {
 		log.Fatal(err)
 	}
