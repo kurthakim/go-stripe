@@ -5,19 +5,20 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/kurthakim/go-stripe/internal/cards"
 )
 
 type stripePayload struct {
 	Currency string `json:"currency"`
-	Amount string `json:"amount"`
+	Amount   string `json:"amount"`
 }
 
 type jsonResponse struct {
-	OK bool `json:"ok"`
+	OK      bool   `json:"ok"`
 	Message string `json:"message,omitempty"`
 	Content string `json:"content,omitempty"`
-	ID int `json:"id,omitempty"`
+	ID      int    `json:"id,omitempty"`
 }
 
 func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request) {
@@ -35,9 +36,9 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	card := cards.Card {
-		Secret: app.config.stripe.secret,
-		Key: app.config.stripe.key,
+	card := cards.Card{
+		Secret:   app.config.stripe.secret,
+		Key:      app.config.stripe.key,
 		Currency: payload.Currency,
 	}
 
@@ -59,7 +60,7 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 
 	} else {
 		j := jsonResponse{
-			OK: false,
+			OK:      false,
 			Message: msg,
 			Content: "",
 		}
@@ -71,9 +72,25 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(out)
+	}
+}
 
+func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	widgetID, _ := strconv.Atoi(id)
+
+	widget, err := app.DB.GetWidget(widgetID)
+	if err != nil {
+		app.errorLog.Println(err)
+		return
 	}
 
+	out, err := json.MarshalIndent(widget, "", "    ")
+	if err != nil {
+		app.errorLog.Println(err)
+		return
+	}
 
-
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(out)
 }
