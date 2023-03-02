@@ -44,7 +44,7 @@ start_back: build_back
 
 ## stop: stops the front and back end
 stop: stop_front stop_back
-	@echo "All applications sto-ppe "
+	@echo "All applications stopped"
 
 ## st op_front: stops the front end
 stop_front:
