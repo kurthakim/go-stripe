@@ -372,7 +372,7 @@ func (app *application) VirtualTerminalPaymentSucceeded(w http.ResponseWriter, r
 
 	card := cards.Card{
 		Secret: app.config.stripe.secret,
-		Key:    app.config.stripe.secret,
+		Key:    app.config.stripe.key,
 	}
 
 	pi, err := card.RetrievePaymentIntent(txnData.PaymentIntent)
@@ -519,4 +519,14 @@ func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	resp.Message = "password changed"
 
 	app.writeJSON(w, http.StatusCreated, resp)
+}
+
+func (app *application) AllSales(w http.ResponseWriter, r *http.Request) {
+	allSales, err := app.DB.GetAllOrders()
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, allSales)
 }
