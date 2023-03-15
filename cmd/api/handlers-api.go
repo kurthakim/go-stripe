@@ -40,6 +40,7 @@ type jsonResponse struct {
 	ID      int    `json:"id,omitempty"`
 }
 
+// GetPaymentIntent gets a payment intent, and returns json(or error json)
 func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request) {
 	var payload stripePayload
 
@@ -94,6 +95,7 @@ func (app *application) GetPaymentIntent(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// GetWidgetByID gets one widget by id and  returns as JSON
 func (app *application) GetWidgetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	widgetID, _ := strconv.Atoi(id)
@@ -121,8 +123,6 @@ func (app *application) CreateCustomerAndSubscribeToPlan(w http.ResponseWriter, 
 		app.errorLog.Println(err)
 		return
 	}
-
-	app.infoLog.Println(data.Email, data.LastFour, data.PaymentMethod, data.Plan)
 
 	card := cards.Card{
 		Secret:   app.config.stripe.secret,
@@ -247,6 +247,7 @@ func (app *application) SaveOrder(order models.Order) (int, error) {
 	return id, nil
 }
 
+// CreateAuthToken creates and sends an auth token, it user supplies valid information
 func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) {
 	var userInput struct {
 		Email    string `json:"email"`
@@ -306,6 +307,7 @@ func (app *application) CreateAuthToken(w http.ResponseWriter, r *http.Request) 
 	_ = app.writeJSON(w, http.StatusOK, payload)
 }
 
+// authenticateToken checks an auth token for validity
 func (app *application) authenticateToken(r *http.Request) (*models.User, error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	if authorizationHeader == "" {
@@ -331,6 +333,7 @@ func (app *application) authenticateToken(r *http.Request) (*models.User, error)
 	return user, nil
 }
 
+// CheckAuthentication checks auth status
 func (app *application) CheckAuthentication(w http.ResponseWriter, r *http.Request) {
 	// validate the token, and get associated user
 	user, err := app.authenticateToken(r)
@@ -349,6 +352,7 @@ func (app *application) CheckAuthentication(w http.ResponseWriter, r *http.Reque
 	app.writeJSON(w, http.StatusOK, payload)
 }
 
+// VirtualTerminalPaymentSucceeded displays a page with receipt information
 func (app *application) VirtualTerminalPaymentSucceeded(w http.ResponseWriter, r *http.Request) {
 	var txnData struct {
 		PaymentAmount   int    `json:"amount"`
@@ -413,6 +417,7 @@ func (app *application) VirtualTerminalPaymentSucceeded(w http.ResponseWriter, r
 
 }
 
+// SendPasswordResetEmail sends an email with a signed url to allow user to reset password
 func (app *application) SendPasswordResetEmail(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Email string `json:"email"`
@@ -470,6 +475,7 @@ func (app *application) SendPasswordResetEmail(w http.ResponseWriter, r *http.Re
 	app.writeJSON(w, http.StatusCreated, resp)
 }
 
+// ResetPassword resets a user's password in the database
 func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Email    string `json:"email"`
@@ -521,28 +527,79 @@ func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusCreated, resp)
 }
 
+// AllSales returns all sales as a slice
 func (app *application) AllSales(w http.ResponseWriter, r *http.Request) {
-	allSales, err := app.DB.GetAllOrders()
+	var payload struct {
+		PageSize    int `json:"page_size"`
+		CurrentPage int `json:"page"`
+	}
+
+	err := app.readJSON(w, r, &payload)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
 	}
 
-	app.writeJSON(w, http.StatusOK, allSales)
+	allSales, lastPage, totalRecords, err := app.DB.GetAllOrdersPaginated(payload.PageSize, payload.CurrentPage)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	var resp struct {
+		CurrentPage  int             `json:"current_page"`
+		PageSize     int             `json:"page_size"`
+		LastPage     int             `json:"last_page"`
+		TotalRecords int             `json:"total_records"`
+		Orders       []*models.Order `json:"orders"`
+	}
+
+	resp.CurrentPage = payload.CurrentPage
+	resp.PageSize = payload.PageSize
+	resp.LastPage = lastPage
+	resp.TotalRecords = totalRecords
+	resp.Orders = allSales
+
+	app.writeJSON(w, http.StatusOK, resp)
 }
 
-// AllSubscriptions renders the all subscriptions page
+// AllSubscriptions returns all subscriptions as a slice
 func (app *application) AllSubscriptions(w http.ResponseWriter, r *http.Request) {
-	allSales, err := app.DB.GetAllSubscriptions()
+	var payload struct {
+		PageSize    int `json:"page_size"`
+		CurrentPage int `json:"page"`
+	}
+
+	err := app.readJSON(w, r, &payload)
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
 	}
 
-	app.writeJSON(w, http.StatusOK, allSales)
+	allSales, lastPage, totalRecords, err := app.DB.GetAllSubscriptionsPaginated(payload.PageSize, payload.CurrentPage)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	var resp struct {
+		CurrentPage  int             `json:"current_page"`
+		PageSize     int             `json:"page_size"`
+		LastPage     int             `json:"last_page"`
+		TotalRecords int             `json:"total_records"`
+		Orders       []*models.Order `json:"orders"`
+	}
+
+	resp.CurrentPage = payload.CurrentPage
+	resp.PageSize = payload.PageSize
+	resp.LastPage = lastPage
+	resp.TotalRecords = totalRecords
+	resp.Orders = allSales
+
+	app.writeJSON(w, http.StatusOK, resp)
 }
 
-// GetSale renders the sale page
+// GetSale returns one sale as json, by id
 func (app *application) GetSale(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	orderID, _ := strconv.Atoi(id)
@@ -556,6 +613,7 @@ func (app *application) GetSale(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, order)
 }
 
+// RefundCharge accepts a json payload and tries to refund a charge
 func (app *application) RefundCharge(w http.ResponseWriter, r *http.Request) {
 	var chargeToRefund struct {
 		ID            int    `json:"id"`
